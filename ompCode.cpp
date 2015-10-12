@@ -1,4 +1,3 @@
-#include<stdio.h>
 #include<cstdlib>
 #include<time.h>
 #include<iostream>
@@ -7,101 +6,101 @@
 
 
 /* Function Prototypes */
-void FillMatricesRandomly(Matrix<double> &mat_a, Matrix<double> &mat_b ); /* fill the matricies RANDOMLY */
-void PrintMatrices(Matrix<double> &mat_a, Matrix<double> &mat_b );	    /* print the input matricies and resultant matrix to the screen */
+void FillMatricesRandomly(Matrix<double> &A, Matrix<double> &B );
+void PrintMatrices( Matrix<double> &A, Matrix<double> &B, Matrix<double> &C );
 
-/* Instantiate Global Variables */
-double start_time, end_time; 	/* used to time the multiplication */
-int row_start, row_end; 	/* which rows of mat_a that are calculated by the slave process */
-int randomHigh = 100; 		/* the upper bound of the random numbers that fill mat_a and mat_b*/
-int randomLow = 0; 		/* the lower bound of the random numbers that fill mat_a and mat_b*/
-
+/* Global variables that could be inputs #TODO */
+int randomHigh = 100; 		/* the upper bound of the random numbers that fill A and B*/
+int randomLow = 0; 		/* the lower bound of the random numbers that fill A and B*/
 
 int main(int argc, char *argv[]) {
-  if ( argv[1]== NULL || argv[2] == NULL){
-   std::cout << "ERROR: The program must be executed in the following way  \n\n  \t \"./omp.exe NumberOfThreads N \"  \n\n where NuberOfThreads and N are integers. \n \n " << std::endl;
-   return 1;
+    std::cout << "Starting an OpenMP parallel matrix multiplication. \n  " << std::endl;  
+  // Read in the two inputs: NumberOfOMPthreads and N
+  if ( argv[1]== NULL || argv[2] == NULL){ // check if inputs were supplied
+    std::cout << "ERROR: The program must be executed in the following way  \n\n  \t \"./omp.exe NumberOfThreads N \"  \n\n where NuberOfThreads and N are integers. \n \n " << std::endl;
+    return 1;
   }
-
-  int numThreads = atoi(argv[1]);
+  int numThreads = atoi(argv[1]); 
   std::cout << "The number of OpenMP threads: " << numThreads << std::endl;
-  omp_set_dynamic(0);
-  omp_set_num_threads(numThreads);
+  omp_set_dynamic(0);		// do not allow the number of threads to be set internally
+  omp_set_num_threads(numThreads); // set the number of threads 
 
-  int N = atoi(argv[2]); 	// for simplicity, all matricies will be NxN
-  int NUM_ROWS_A = N;
-  int NUM_COLUMNS_A = N;
-  int NUM_ROWS_B = N;
-  int NUM_COLUMNS_B = N;
-  
+  int N = atoi(argv[2]);  // The dimensions of the matrices MUST be specified at runtime.
+  std::cout << "The matrices are: " << N<<"x"<<N<< std::endl;
+  // for simplicity, all matricies will be NxN
+  int numberOfRowsA = N;  int numberOfColsA = N;  int numberOfRowsB = N;  int numberOfColsB = N;  
+  //Declare matrices: Matix class is a 2D vetor
+  Matrix<double> A = Matrix<double>(numberOfRowsA, numberOfColsA); 
+  Matrix<double> B = Matrix<double>(numberOfRowsB, numberOfColsB); 
+  Matrix<double> C = Matrix<double>(numberOfRowsA, numberOfColsB); 
 
-  
+  FillMatricesRandomly(A, B); 	/* Excluded from timing!!!  */
+
   struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start); // start timing
 
-  /* Before anything else, check if matricies can be multiplied */
-  if ( NUM_COLUMNS_A != NUM_ROWS_B){
-    std::cout << "Program ended without a result: the matricies must be of the form mxn * nxp, where the inner dimensions agree." << std::endl;
-      return 1;
-	}
-  Matrix<double> mat_a = Matrix<double>(NUM_ROWS_A, NUM_COLUMNS_A);
-  Matrix<double> mat_b = Matrix<double>(NUM_ROWS_B, NUM_COLUMNS_B);
-  Matrix<double> mat_result = Matrix<double>(NUM_ROWS_A, NUM_COLUMNS_B);
-  
-  FillMatricesRandomly(mat_a, mat_b); 	/* Excluded from timing!!!  */
-
- clock_gettime(CLOCK_MONOTONIC, &start);
-  
+  // Used to calculate the longest a process spends calculating its part of the workload.
+  // double sumLocalTime = 0;
+  double sum = 0;
+  double val = 0;
   // Matrix Multiplication
-#pragma omp parallel for 
-    for (int i = 0; i < NUM_ROWS_A; i++) {
-      for (int j = 0; j < NUM_COLUMNS_B; j++) {
-  	for (int k = 0; k < NUM_ROWS_B; k++) {
-  	  mat_result(i,j) += ( mat_a(i,k) * mat_b(k,j) );
-  	}
+#pragma omp parallel for private(val) reduction(+:sum)
+  for (int i = 0; i < A.rows(); i++) {//iterate through rows of A (parallelized loop)
+    val = omp_get_wtime();
+    for (int j = 0; j < B.cols(); j++) {//iterate through columns of B
+      for (int k = 0; k < B.rows(); k++) {//iterate through rows of B
+	C(i,j) += (A(i,k) * B(k,j));
       }
     }
+    sum +=  omp_get_wtime() - val;
+  }
 
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    double diffTime = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)*1e-9;
-    std::cout << "\nRunning Time = " << diffTime << std::endl;
-    // PrintMatrices(mat_a, mat_b);
+  clock_gettime(CLOCK_MONOTONIC, &end); // end timing
+  double totalMatrixCalculationTime = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)*1e-9;
+  std::cout << "Total multplication time = " << totalMatrixCalculationTime << std::endl;
+  std::cout << "average multplication time = " << sum/numThreads << std::endl;
+  std::cout << "Approximate Communication time = " << totalMatrixCalculationTime - sum/numThreads << std::endl;  
+//   PrintMatrices(A, B, C); 
   return 0;
 }
-void FillMatricesRandomly(Matrix<double> &mat_a, Matrix<double> &mat_b){
-  srand( time( NULL ));		/* initialize the random number generator with the current time */
 
-  for (int i = 0; i < mat_a.rows(); i++) {
-    for (int j = 0; j < mat_a.cols(); j++) {
-      mat_a(i,j) = rand() % (randomHigh - randomLow) + randomLow;      
+void FillMatricesRandomly(Matrix<double> &A, Matrix<double> &B){
+/* initialize the random number generator with the current time */  
+  srand( time( NULL ));		
+  for (int i = 0; i < A.rows(); i++) {
+    for (int j = 0; j < A.cols(); j++) {
+      A(i,j) = rand() % (randomHigh - randomLow) + randomLow;      
     }
   }
-  for (int i = 0; i < mat_a.rows(); i++) {
-    for (int j = 0; j < mat_a.cols(); j++) {
-      mat_b(i,j) = rand() % (randomHigh - randomLow) + randomLow;      
+  for (int i = 0; i < B.rows(); i++) {
+    for (int j = 0; j < B.cols(); j++) {
+      B(i,j) = rand() % (randomHigh - randomLow) + randomLow;      
     }
   }
 }
 
-void PrintMatrices(Matrix<double> &mat_a, Matrix<double> &mat_b){
-
-  for (int i = 0; i < mat_a.rows(); i++) {
-    printf("\n");
-    for (int j = 0; j < mat_b.cols(); j++)
-      std::cout << mat_a(i,j) << " ";
+void PrintMatrices(Matrix<double> &A, Matrix<double> &B, Matrix<double> &C){
+  for (int i = 0; i < A.rows(); i++) {
+    std::cout <<"\n"<<std::endl;
+    for (int j = 0; j < A.cols(); j++)
+      std::cout << A(i,j) << " ";
   }
-  printf("\n");
-
-  for (int i = 0; i < mat_b.rows(); i++) {
-    printf("\n");
-    for (int j = 0; j < mat_b.cols(); j++)
-      std::cout << mat_b(i,j) << " ";
+    std::cout <<"\n\n"<<std::endl;  
+  for (int i = 0; i < B.rows(); i++) {
+    std::cout <<"\n"<<std::endl;
+    for (int j = 0; j < B.cols(); j++)
+      std::cout << B(i,j) << " ";
   }
-  printf("\n"); 
-    }
+  std::cout <<"\n\n"<<std::endl;  
+  for (int i = 0; i < C.rows(); i++) {
+    std::cout <<"\n"<<std::endl;  
+    for (int j = 0; j < C.cols(); j++)
+      std::cout << C(i,j) << " ";
+  }
+  std::cout <<"\n\n"<<std::endl;    
+
+}
 
 
 
-
-
-
-
+ 
