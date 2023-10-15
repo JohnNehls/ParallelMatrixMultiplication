@@ -35,7 +35,7 @@ int randomLow = 0;       // the lower bound of the random numbers that fill A an
 int main(int argc, char *argv[]) {
   // ***** Handle the input size of the Matrices, N, where matrices A, B, and C will be NxN ***** 
   if ( argv[1]== NULL ){// check if the input was supplied
-   std::cout << "ERROR: The program must be executed in the following way  \n\n  \t \"mpirun -n NumberOfProcesses mpi.exe N \"  \n\n where N is an integer. \n \n " << std::endl;
+   std::cout << "ERROR: The program must be executed in the following way  \n\n  \t mpirun -n NumProcs mpi.exe N   \n\n where NumProcs >= 2 and N is an integer divisible by NumProcs. \n \n " << std::endl;
    return 1;
   }
   int N = atoi(argv[1]);  // The dimensions of the matrices MUST be specified at runtime.
