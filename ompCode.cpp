@@ -1,9 +1,8 @@
 #include<cstdlib>
 #include<time.h>
 #include<iostream>
-#include<matrix.h>
 #include<omp.h>
-
+#include "matrix.h"
 
 /* Function Prototypes */
 void FillMatricesRandomly(Matrix<double> &A, Matrix<double> &B );

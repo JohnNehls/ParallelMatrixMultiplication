@@ -2,7 +2,7 @@
 #include<ctime>
 #include<mpi.h>
 #include<algorithm>
-#include<matrix.h> 	       
+#include "matrix.h"
 
 // Function Prototypes
 void FillMatricesRandomly(Matrix<double> &A, Matrix<double> &B ); 
